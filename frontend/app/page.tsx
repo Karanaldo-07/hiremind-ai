@@ -31,7 +31,7 @@ export default function Home() {
           <a href="#features">Features</a>
           <a href="#about">About</a>
         </div>
-        <a className="nav-cta" href="#start">Get started <span>→</span></a>
+        <a className="nav-cta" href="/analyze">Get started <span>→</span></a>
       </nav>
 
       <section className="hero shell" id="top">
@@ -43,7 +43,7 @@ export default function Home() {
             personalized skill roadmap, and interview practice built around your actual profile.
           </p>
           <div className="hero-actions" id="start">
-            <a className="button button-primary" href="#how-it-works">Analyze a job <span>→</span></a>
+            <a className="button button-primary" href="/analyze">Analyze a job <span>→</span></a>
             <a className="button button-secondary" href="#features">Explore features</a>
           </div>
           <div className="trust-row">
