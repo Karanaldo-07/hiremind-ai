@@ -3,12 +3,7 @@
 import { useRef, useState } from "react";
 
 type ResumeProfile = {
-  contact?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    linkedin?: string;
-  };
+  contact?: { name?: string; email?: string; phone?: string; linkedin?: string };
   skills?: string[];
   sections?: Record<string, unknown>;
 };
@@ -16,10 +11,20 @@ type ResumeProfile = {
 type UploadResult = {
   filename: string;
   content_type: string;
-  size_bytes?: number;
   text_length: number;
   text: string;
   profile?: ResumeProfile;
+};
+
+type MatchResult = {
+  match_score: number;
+  score_breakdown: { skills: number; experience: number; education: number };
+  matched_skills: string[];
+  missing_skills: string[];
+  job_title?: string | null;
+  experience: { resume_years?: number | null; required_years?: number | null; reason: string };
+  education: { resume_degrees: string[]; required_degrees: string[]; reason: string };
+  methodology: string;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -46,6 +51,9 @@ export default function ResumeUpload() {
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<UploadResult | null>(null);
+  const [jobDescription, setJobDescription] = useState("");
+  const [match, setMatch] = useState<MatchResult | null>(null);
+  const [matching, setMatching] = useState(false);
 
   const selectFile = (candidate?: File) => {
     if (!candidate) return;
@@ -54,43 +62,49 @@ export default function ResumeUpload() {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
     if (!allowed.includes(candidate.type)) {
-      setFile(null);
-      setStatus("error");
-      setMessage("Please choose a PDF or DOCX resume.");
-      return;
+      setFile(null); setStatus("error"); setMessage("Please choose a PDF or DOCX resume."); return;
     }
     if (candidate.size > 5 * 1024 * 1024) {
-      setFile(null);
-      setStatus("error");
-      setMessage("Your resume must be 5 MB or smaller.");
-      return;
+      setFile(null); setStatus("error"); setMessage("Your resume must be 5 MB or smaller."); return;
     }
-    setFile(candidate);
-    setStatus("idle");
-    setMessage("");
-    setResult(null);
+    setFile(candidate); setStatus("idle"); setMessage(""); setResult(null); setMatch(null);
   };
 
   const upload = async () => {
     if (!file) return;
-    setStatus("uploading");
-    setMessage("Extracting and structuring your resume…");
+    setStatus("uploading"); setMessage("Extracting and structuring your resume…");
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const endpoint = `${API_URL}/api/v1/resumes/upload`;
-      const response = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(`${API_URL}/api/v1/resumes/upload`, { method: "POST", body: formData });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Upload failed.");
-      setResult(data);
-      setStatus("success");
-      setMessage("Resume extracted and structured successfully.");
+      setResult(data); setStatus("success"); setMessage("Resume extracted and structured successfully.");
     } catch (error) {
-      setStatus("error");
+      setStatus("error"); setMessage(error instanceof Error ? error.message : "Something went wrong.");
+    }
+  };
+
+  const analyzeMatch = async () => {
+    if (!result || jobDescription.trim().length < 30) return;
+    setMatching(true); setMatch(null); setMessage("Comparing your resume against the job description…");
+    try {
+      const response = await fetch(`${API_URL}/api/v1/matches/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume_text: result.text,
+          resume_skills: result.profile?.skills || [],
+          job_description: jobDescription,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Match analysis failed.");
+      setMatch(data.match); setMessage("Match analysis complete.");
+    } catch (error) {
       setMessage(error instanceof Error ? error.message : "Something went wrong.");
+    } finally {
+      setMatching(false);
     }
   };
 
@@ -103,13 +117,7 @@ export default function ResumeUpload() {
         onDrop={(event) => { event.preventDefault(); setDragging(false); selectFile(event.dataTransfer.files[0]); }}
         onClick={() => inputRef.current?.click()}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          hidden
-          onChange={(event) => selectFile(event.target.files?.[0])}
-        />
+        <input ref={inputRef} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden onChange={(event) => selectFile(event.target.files?.[0])} />
         <div className="upload-icon">↑</div>
         <strong>{file ? file.name : "Drop your resume here"}</strong>
         <span>{file ? "Click to choose a different file" : "or click to browse your files"}</span>
@@ -145,9 +153,7 @@ export default function ResumeUpload() {
           {!!result.profile?.skills?.length && (
             <div className="profile-block">
               <span className="mini-label">DETECTED SKILLS</span>
-              <div className="skill-list">
-                {result.profile.skills.map((skill) => <span className="skill-chip" key={skill}>{skill}</span>)}
-              </div>
+              <div className="skill-list">{result.profile.skills.map((skill) => <span className="skill-chip" key={skill}>{skill}</span>)}</div>
             </div>
           )}
 
@@ -162,9 +168,60 @@ export default function ResumeUpload() {
             <summary>View extracted evidence</summary>
             <div className="result-preview">{result.text.slice(0, 1800)}{result.text.length > 1800 ? "…" : ""}</div>
           </details>
-
-          <p>Next, we’ll compare this profile against a target job description to calculate an explainable match and identify skill gaps.</p>
         </div>
+      )}
+
+      {result && !match && (
+        <section className="job-match-panel">
+          <div>
+            <span className="section-kicker">STEP 02 · JOB INTELLIGENCE</span>
+            <h2>Now test your <em>fit.</em></h2>
+            <p>Paste a real job description. HireMind will compare it with the skills and evidence extracted from your resume.</p>
+          </div>
+          <textarea
+            className="job-input"
+            value={jobDescription}
+            onChange={(event) => setJobDescription(event.target.value)}
+            placeholder="Paste the complete job description here…"
+            maxLength={30000}
+          />
+          <div className="job-input-footer">
+            <span>{jobDescription.length.toLocaleString()} characters · minimum 30</span>
+            <button className="button button-primary" onClick={analyzeMatch} disabled={matching || jobDescription.trim().length < 30}>
+              {matching ? "Calculating…" : "Analyze my fit"} <span>→</span>
+            </button>
+          </div>
+        </section>
+      )}
+
+      {match && (
+        <section className="match-result">
+          <div className="match-result-top">
+            <div>
+              <span className="section-kicker">STEP 03 · EXPLAINABLE MATCH</span>
+              <h2>{match.job_title || "Target role"}</h2>
+              <p>Here is why HireMind calculated this score.</p>
+            </div>
+            <div className="big-score"><strong>{match.match_score}</strong><span>%</span></div>
+          </div>
+
+          <div className="breakdown-grid">
+            <div><span>SKILLS</span><strong>{match.score_breakdown.skills}%</strong></div>
+            <div><span>EXPERIENCE</span><strong>{match.score_breakdown.experience}%</strong></div>
+            <div><span>EDUCATION</span><strong>{match.score_breakdown.education}%</strong></div>
+          </div>
+
+          <div className="match-columns">
+            <div><span className="mini-label">MATCHED SKILLS</span><div className="skill-list">{match.matched_skills.map((skill) => <span className="skill good" key={skill}>✓ {skill}</span>)}</div></div>
+            <div><span className="mini-label">SKILL GAPS</span><div className="skill-list">{match.missing_skills.length ? match.missing_skills.map((skill) => <span className="skill warn" key={skill}>+ {skill}</span>) : <span className="match-positive">No detected skill gaps.</span>}</div></div>
+          </div>
+
+          <div className="fit-reasons">
+            <p><strong>Experience:</strong> {match.experience.reason}</p>
+            <p><strong>Education:</strong> {match.education.reason}</p>
+          </div>
+          <p className="methodology">Scoring methodology: {match.methodology}</p>
+        </section>
       )}
     </div>
   );
