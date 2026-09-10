@@ -85,8 +85,8 @@ def calculate_match(resume_text: str, resume_skills: list[str], job: dict[str, A
     semantic = semantic_similarity(resume_text, job.get("raw_text", ""))
     semantic_score = float(semantic["score"])
 
-    # Hybrid score: exact required skills remain the strongest signal, while
-    # embeddings capture related experience and terminology that exact matching misses.
+    # Exact skills remain the strongest signal while text similarity captures
+    # related terminology and context that exact skill matching can miss.
     overall = round(
         skill_score * 0.60
         + semantic_score * 0.20
@@ -116,5 +116,5 @@ def calculate_match(resume_text: str, resume_skills: list[str], job: dict[str, A
             "reason": education_reason,
         },
         "semantic_analysis": semantic,
-        "methodology": "60% exact required skills + 20% semantic similarity + 10% experience fit + 10% education fit. Semantic similarity uses all-MiniLM-L6-v2 sentence embeddings and cosine similarity.",
+        "methodology": "60% exact required skills + 20% text relevance similarity + 10% experience fit + 10% education fit. Text relevance uses TF-IDF word and bi-gram cosine similarity for a lightweight local ML signal.",
     }
