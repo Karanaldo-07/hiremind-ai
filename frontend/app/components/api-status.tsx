@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://hiremind-ai-api.onrender.com";
-
 export default function ApiStatus() {
   const [status, setStatus] = useState<"checking" | "online" | "offline">("checking");
 
   useEffect(() => {
-    fetch(`${API_URL}/health`, { cache: "no-store" })
+    fetch("/api/health", { cache: "no-store" })
       .then((response) => {
         setStatus(response.ok ? "online" : "offline");
       })
