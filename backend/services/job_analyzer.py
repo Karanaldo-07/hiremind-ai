@@ -95,8 +95,6 @@ def analyze_job_description(text: str) -> dict[str, Any]:
     required_skills = [skill for skill in skills if any(marker in lower for marker in REQUIRED_MARKERS)]
     preferred_skills = [skill for skill in skills if any(marker in lower for marker in PREFERRED_MARKERS)]
 
-    # If the description does not clearly separate required/preferred language,
-    # keep all detected skills as the working requirements for later matching.
     if not required_skills:
         required_skills = skills.copy()
 
@@ -108,4 +106,5 @@ def analyze_job_description(text: str) -> dict[str, Any]:
         "experience_years": _extract_years(cleaned),
         "education": _extract_education(cleaned),
         "text_length": len(cleaned),
+        "raw_text": cleaned,
     }
