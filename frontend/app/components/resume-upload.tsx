@@ -28,6 +28,21 @@ type MatchResult = {
   methodology: string;
 };
 
+type RoadmapItem = {
+  skill: string;
+  priority: "high" | "medium" | "low";
+  why: string;
+  actions: string[];
+};
+
+type RoadmapResult = {
+  job_title?: string | null;
+  matched_skill_count: number;
+  gap_count: number;
+  roadmap: RoadmapItem[];
+  strategy: string;
+};
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 function formatSectionTitle(value: string) {
@@ -55,6 +70,8 @@ export default function ResumeUpload() {
   const [jobDescription, setJobDescription] = useState("");
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [matching, setMatching] = useState(false);
+  const [roadmap, setRoadmap] = useState<RoadmapResult | null>(null);
+  const [roadmapLoading, setRoadmapLoading] = useState(false);
 
   const selectFile = (candidate?: File) => {
     if (!candidate) return;
@@ -68,7 +85,7 @@ export default function ResumeUpload() {
     if (candidate.size > 5 * 1024 * 1024) {
       setFile(null); setStatus("error"); setMessage("Your resume must be 5 MB or smaller."); return;
     }
-    setFile(candidate); setStatus("idle"); setMessage(""); setResult(null); setMatch(null);
+    setFile(candidate); setStatus("idle"); setMessage(""); setResult(null); setMatch(null); setRoadmap(null);
   };
 
   const upload = async () => {
@@ -88,7 +105,7 @@ export default function ResumeUpload() {
 
   const analyzeMatch = async () => {
     if (!result || jobDescription.trim().length < 30) return;
-    setMatching(true); setMatch(null); setMessage("Comparing your resume using skills, experience, and lightweight ML similarity…");
+    setMatching(true); setMatch(null); setRoadmap(null); setMessage("Comparing your resume using skills, experience, and lightweight ML similarity…");
     try {
       const response = await fetch(`${API_URL}/api/v1/matches/analyze`, {
         method: "POST",
@@ -106,6 +123,29 @@ export default function ResumeUpload() {
       setMessage(error instanceof Error ? error.message : "Something went wrong.");
     } finally {
       setMatching(false);
+    }
+  };
+
+  const generateRoadmap = async () => {
+    if (!match) return;
+    setRoadmapLoading(true); setMessage("Building your personalized skill-gap roadmap…");
+    try {
+      const response = await fetch(`${API_URL}/api/v1/roadmaps/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          missing_skills: match.missing_skills,
+          matched_skills: match.matched_skills,
+          job_title: match.job_title,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Roadmap generation failed.");
+      setRoadmap(data.roadmap); setMessage("Personalized roadmap generated.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Something went wrong.");
+    } finally {
+      setRoadmapLoading(false);
     }
   };
 
@@ -196,39 +236,78 @@ export default function ResumeUpload() {
       )}
 
       {match && (
-        <section className="match-result">
-          <div className="match-result-top">
-            <div>
-              <span className="section-kicker">STEP 03 · HYBRID MATCH</span>
-              <h2>{match.job_title || "Target role"}</h2>
-              <p>HireMind combines exact skill evidence with ML-based text relevance to explain your fit.</p>
+        <>
+          <section className="match-result">
+            <div className="match-result-top">
+              <div>
+                <span className="section-kicker">STEP 03 · HYBRID MATCH</span>
+                <h2>{match.job_title || "Target role"}</h2>
+                <p>HireMind combines exact skill evidence with ML-based text relevance to explain your fit.</p>
+              </div>
+              <div className="big-score"><strong>{match.match_score}</strong><span>%</span></div>
             </div>
-            <div className="big-score"><strong>{match.match_score}</strong><span>%</span></div>
-          </div>
 
-          <div className="breakdown-grid">
-            <div><span>SKILLS</span><strong>{match.score_breakdown.skills}%</strong></div>
-            <div><span>RELEVANCE</span><strong>{match.score_breakdown.semantic}%</strong></div>
-            <div><span>EXPERIENCE</span><strong>{match.score_breakdown.experience}%</strong></div>
-            <div><span>EDUCATION</span><strong>{match.score_breakdown.education}%</strong></div>
-          </div>
+            <div className="breakdown-grid">
+              <div><span>SKILLS</span><strong>{match.score_breakdown.skills}%</strong></div>
+              <div><span>RELEVANCE</span><strong>{match.score_breakdown.semantic}%</strong></div>
+              <div><span>EXPERIENCE</span><strong>{match.score_breakdown.experience}%</strong></div>
+              <div><span>EDUCATION</span><strong>{match.score_breakdown.education}%</strong></div>
+            </div>
 
-          <div className="semantic-note">
-            <div><span className="mini-label">TEXT RELEVANCE</span><strong>{match.score_breakdown.semantic}%</strong></div>
-            <p>{match.semantic_analysis?.method || "TF-IDF word + bi-gram cosine similarity"}</p>
-          </div>
+            <div className="semantic-note">
+              <div><span className="mini-label">TEXT RELEVANCE</span><strong>{match.score_breakdown.semantic}%</strong></div>
+              <p>{match.semantic_analysis?.method || "TF-IDF word + bi-gram cosine similarity"}</p>
+            </div>
 
-          <div className="match-columns">
-            <div><span className="mini-label">MATCHED SKILLS</span><div className="skill-list">{match.matched_skills.map((skill) => <span className="skill good" key={skill}>✓ {skill}</span>)}</div></div>
-            <div><span className="mini-label">SKILL GAPS</span><div className="skill-list">{match.missing_skills.length ? match.missing_skills.map((skill) => <span className="skill warn" key={skill}>+ {skill}</span>) : <span className="match-positive">No detected skill gaps.</span>}</div></div>
-          </div>
+            <div className="match-columns">
+              <div><span className="mini-label">MATCHED SKILLS</span><div className="skill-list">{match.matched_skills.map((skill) => <span className="skill good" key={skill}>✓ {skill}</span>)}</div></div>
+              <div><span className="mini-label">SKILL GAPS</span><div className="skill-list">{match.missing_skills.length ? match.missing_skills.map((skill) => <span className="skill warn" key={skill}>+ {skill}</span>) : <span className="match-positive">No detected skill gaps.</span>}</div></div>
+            </div>
 
-          <div className="fit-reasons">
-            <p><strong>Experience:</strong> {match.experience.reason}</p>
-            <p><strong>Education:</strong> {match.education.reason}</p>
-          </div>
-          <p className="methodology">Scoring methodology: {match.methodology}</p>
-        </section>
+            <div className="fit-reasons">
+              <p><strong>Experience:</strong> {match.experience.reason}</p>
+              <p><strong>Education:</strong> {match.education.reason}</p>
+            </div>
+            <p className="methodology">Scoring methodology: {match.methodology}</p>
+          </section>
+
+          <section className="roadmap-panel">
+            <div className="roadmap-header">
+              <div>
+                <span className="section-kicker">STEP 04 · SKILL GAP ROADMAP</span>
+                <h2>Turn gaps into <em>evidence.</em></h2>
+                <p>HireMind prioritizes missing requirements and gives you practical actions to become interview-ready.</p>
+              </div>
+              {!roadmap && (
+                <button className="button button-primary" onClick={generateRoadmap} disabled={roadmapLoading}>
+                  {roadmapLoading ? "Building…" : "Build my roadmap"} <span>→</span>
+                </button>
+              )}
+            </div>
+
+            {roadmap && (
+              <>
+                <div className="roadmap-summary">
+                  <div><strong>{roadmap.gap_count}</strong><span>skill gaps</span></div>
+                  <div><strong>{roadmap.matched_skill_count}</strong><span>matched skills</span></div>
+                </div>
+                <p className="roadmap-strategy">{roadmap.strategy}</p>
+                <div className="roadmap-list">
+                  {roadmap.roadmap.map((item) => (
+                    <article className="roadmap-card" key={item.skill}>
+                      <div className="roadmap-card-top">
+                        <h3>{item.skill}</h3>
+                        <span className={`priority-${item.priority}`}>{item.priority} priority</span>
+                      </div>
+                      <p>{item.why}</p>
+                      <ol>{item.actions.map((action) => <li key={action}>{action}</li>)}</ol>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        </>
       )}
     </div>
   );
