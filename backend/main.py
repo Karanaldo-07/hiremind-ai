@@ -1,13 +1,17 @@
+from typing import Any
+
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
+from backend.services.job_analyzer import analyze_job_description
 from backend.services.resume_parser import MAX_FILE_SIZE, extract_resume_text
 from backend.services.resume_structurer import structure_resume
 
 app = FastAPI(
     title="HireMind AI API",
     description="Backend API for resume intelligence, job matching, and interview preparation.",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 app.add_middleware(
@@ -19,12 +23,16 @@ app.add_middleware(
 )
 
 
+class JobDescriptionRequest(BaseModel):
+    text: str = Field(..., min_length=30, max_length=30000)
+
+
 @app.get("/")
 def root():
     return {
         "name": "HireMind AI API",
         "status": "running",
-        "version": "0.3.0",
+        "version": "0.4.0",
     }
 
 
@@ -58,3 +66,8 @@ async def upload_resume(file: UploadFile = File(...)):
         "text": text,
         "profile": profile,
     }
+
+
+@app.post("/api/v1/jobs/analyze")
+def analyze_job(request: JobDescriptionRequest) -> dict[str, Any]:
+    return {"job": analyze_job_description(request.text)}
