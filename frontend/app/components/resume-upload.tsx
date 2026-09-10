@@ -18,12 +18,13 @@ type UploadResult = {
 
 type MatchResult = {
   match_score: number;
-  score_breakdown: { skills: number; experience: number; education: number };
+  score_breakdown: { skills: number; semantic: number; experience: number; education: number };
   matched_skills: string[];
   missing_skills: string[];
   job_title?: string | null;
   experience: { resume_years?: number | null; required_years?: number | null; reason: string };
   education: { resume_degrees: string[]; required_degrees: string[]; reason: string };
+  semantic_analysis?: { score: number; similarity: number; method: string };
   methodology: string;
 };
 
@@ -87,7 +88,7 @@ export default function ResumeUpload() {
 
   const analyzeMatch = async () => {
     if (!result || jobDescription.trim().length < 30) return;
-    setMatching(true); setMatch(null); setMessage("Comparing your resume against the job description…");
+    setMatching(true); setMatch(null); setMessage("Comparing your resume using skills, experience, and semantic embeddings…");
     try {
       const response = await fetch(`${API_URL}/api/v1/matches/analyze`, {
         method: "POST",
@@ -100,7 +101,7 @@ export default function ResumeUpload() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Match analysis failed.");
-      setMatch(data.match); setMessage("Match analysis complete.");
+      setMatch(data.match); setMessage("Hybrid match analysis complete.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Something went wrong.");
     } finally {
@@ -198,17 +199,23 @@ export default function ResumeUpload() {
         <section className="match-result">
           <div className="match-result-top">
             <div>
-              <span className="section-kicker">STEP 03 · EXPLAINABLE MATCH</span>
+              <span className="section-kicker">STEP 03 · HYBRID MATCH</span>
               <h2>{match.job_title || "Target role"}</h2>
-              <p>Here is why HireMind calculated this score.</p>
+              <p>HireMind combines exact skill evidence with semantic similarity to explain your fit.</p>
             </div>
             <div className="big-score"><strong>{match.match_score}</strong><span>%</span></div>
           </div>
 
           <div className="breakdown-grid">
             <div><span>SKILLS</span><strong>{match.score_breakdown.skills}%</strong></div>
+            <div><span>SEMANTIC</span><strong>{match.score_breakdown.semantic}%</strong></div>
             <div><span>EXPERIENCE</span><strong>{match.score_breakdown.experience}%</strong></div>
             <div><span>EDUCATION</span><strong>{match.score_breakdown.education}%</strong></div>
+          </div>
+
+          <div className="semantic-note">
+            <div><span className="mini-label">SEMANTIC SIMILARITY</span><strong>{match.score_breakdown.semantic}%</strong></div>
+            <p>{match.semantic_analysis?.method || "Sentence embeddings + cosine similarity"}</p>
           </div>
 
           <div className="match-columns">
