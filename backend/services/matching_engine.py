@@ -1,6 +1,8 @@
 import re
 from typing import Any
 
+from backend.services.semantic_matcher import semantic_similarity
+
 
 def _normalize(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower())
@@ -80,12 +82,23 @@ def calculate_match(resume_text: str, resume_skills: list[str], job: dict[str, A
         ) else 0
         education_reason = "A matching degree type was detected." if education_score else "No clear matching degree type was detected."
 
-    overall = round(skill_score * 0.70 + experience_score * 0.20 + education_score * 0.10)
+    semantic = semantic_similarity(resume_text, job.get("raw_text", ""))
+    semantic_score = float(semantic["score"])
+
+    # Hybrid score: exact required skills remain the strongest signal, while
+    # embeddings capture related experience and terminology that exact matching misses.
+    overall = round(
+        skill_score * 0.60
+        + semantic_score * 0.20
+        + experience_score * 0.10
+        + education_score * 0.10
+    )
 
     return {
         "match_score": overall,
         "score_breakdown": {
             "skills": skill_score,
+            "semantic": semantic_score,
             "experience": experience_score,
             "education": education_score,
         },
@@ -102,5 +115,6 @@ def calculate_match(resume_text: str, resume_skills: list[str], job: dict[str, A
             "required_degrees": job_education,
             "reason": education_reason,
         },
-        "methodology": "70% required skills + 20% experience fit + 10% education fit. Exact skill matching is case-insensitive and explainable.",
+        "semantic_analysis": semantic,
+        "methodology": "60% exact required skills + 20% semantic similarity + 10% experience fit + 10% education fit. Semantic similarity uses all-MiniLM-L6-v2 sentence embeddings and cosine similarity.",
     }
