@@ -1,3 +1,5 @@
+import ApiStatus from "./components/api-status";
+
 const features = [
   {
     number: "01",
@@ -50,6 +52,8 @@ export default function Home() {
             <span>Explainable AI</span>
             <span className="dot" />
             <span>Portfolio-ready</span>
+            <span className="dot" />
+            <ApiStatus />
           </div>
         </div>
 
