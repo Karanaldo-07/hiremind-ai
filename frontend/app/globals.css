@@ -55,6 +55,12 @@ h1 em { color: var(--accent); font-style: normal; }
 .button-secondary { border: 1px solid var(--line); color: #c5d0ca; }
 .trust-row { display: flex; align-items: center; gap: 9px; margin-top: 27px; color: #697970; font-size: 10px; }
 .dot { width: 3px; height: 3px; border-radius: 50%; background: #53625b; }
+.api-status { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.api-dot { width: 5px; height: 5px; border-radius: 50%; background: #697970; }
+.api-online { color: var(--accent); }
+.api-online .api-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.api-offline { color: #a9856b; }
+.api-offline .api-dot { background: #a9856b; }
 
 .hero-visual { position: relative; min-height: 490px; display: grid; place-items: center; }
 .glow { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .22; pointer-events: none; }
@@ -122,4 +128,5 @@ h1 em { color: var(--accent); font-style: normal; }
   .floating-top { left: -5px; top: 25px; }
   .floating-bottom { right: -5px; bottom: 25px; }
   .dashboard-card { padding: 18px; }
+  .trust-row { flex-wrap: wrap; }
 }
