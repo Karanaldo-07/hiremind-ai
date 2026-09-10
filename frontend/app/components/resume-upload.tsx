@@ -88,7 +88,7 @@ export default function ResumeUpload() {
 
   const analyzeMatch = async () => {
     if (!result || jobDescription.trim().length < 30) return;
-    setMatching(true); setMatch(null); setMessage("Comparing your resume using skills, experience, and semantic embeddings…");
+    setMatching(true); setMatch(null); setMessage("Comparing your resume using skills, experience, and lightweight ML similarity…");
     try {
       const response = await fetch(`${API_URL}/api/v1/matches/analyze`, {
         method: "POST",
@@ -201,21 +201,21 @@ export default function ResumeUpload() {
             <div>
               <span className="section-kicker">STEP 03 · HYBRID MATCH</span>
               <h2>{match.job_title || "Target role"}</h2>
-              <p>HireMind combines exact skill evidence with semantic similarity to explain your fit.</p>
+              <p>HireMind combines exact skill evidence with ML-based text relevance to explain your fit.</p>
             </div>
             <div className="big-score"><strong>{match.match_score}</strong><span>%</span></div>
           </div>
 
           <div className="breakdown-grid">
             <div><span>SKILLS</span><strong>{match.score_breakdown.skills}%</strong></div>
-            <div><span>SEMANTIC</span><strong>{match.score_breakdown.semantic}%</strong></div>
+            <div><span>RELEVANCE</span><strong>{match.score_breakdown.semantic}%</strong></div>
             <div><span>EXPERIENCE</span><strong>{match.score_breakdown.experience}%</strong></div>
             <div><span>EDUCATION</span><strong>{match.score_breakdown.education}%</strong></div>
           </div>
 
           <div className="semantic-note">
-            <div><span className="mini-label">SEMANTIC SIMILARITY</span><strong>{match.score_breakdown.semantic}%</strong></div>
-            <p>{match.semantic_analysis?.method || "Sentence embeddings + cosine similarity"}</p>
+            <div><span className="mini-label">TEXT RELEVANCE</span><strong>{match.score_breakdown.semantic}%</strong></div>
+            <p>{match.semantic_analysis?.method || "TF-IDF word + bi-gram cosine similarity"}</p>
           </div>
 
           <div className="match-columns">
